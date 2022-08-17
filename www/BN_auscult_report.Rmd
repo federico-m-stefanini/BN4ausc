@@ -1,0 +1,420 @@
+---
+title: "Auscultation: BN report"
+author: " Author 1"
+date:  " "
+output: 
+  html_document:
+    toc: false
+  word_document:
+    reference_docx: "template.docx"
+params:
+      dataNow: NA
+      myNotes: NA
+      tavola1: !r  NA
+      tavola2: !r  NA
+      figura1: !r  NA
+      figura2: !r  NA  
+      current_evi: !r NA
+      spe_sen_LS: !r NA
+      effe_size_stat: !r NA
+      release_cur:  "0.0"
+---
+
+Today: `r params$dataNow`     
+Current release: rel.  `r params$release_cur`    
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      opts.label="kill_prefix")
+library(stringr)
+library(magrittr)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+ 
+save(params,file="params.RData")
+```
+
+
+
+
+```{r,echo=FALSE,eval=FALSE,results='hide'}
+rmarkdown::render(input = "www/BN_auscult_report.Rmd", 
+                  output_format = "html_document", 
+        params = list( dataNow =  paste0(date()),
+                       myNotes =  paste0("Cosa combini?","ciao"),
+                       tavola1  = get("iris",envir= .GlobalEnv),
+                       tavola2  = get("iris",envir= .GlobalEnv),
+                       figura1 =  get("figu1",envir= .GlobalEnv),
+                       figura2 =  get("figu2",envir= .GlobalEnv),
+                       current_evi = get("current_evi",envir= .GlobalEnv)), 
+             intermediates_dir = "www",
+            output_dir = "www", 
+            output_file = "BNreport")
+```
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+## Notes 
+
+```{r,comment=NA}
+cat(params$myNotes)
+ 
+```
+ 
+ 
+ 
+## Prior and posterior probability values.
+
+The initial probability is the marginal distribution of disease (empty evidence).   
+
+The final probability is conditioned to 
+$$EE\_AuscVC\_Basal  \wedge EE\_AuscVC\_Sym\_same\_lev \wedge \xi $$ 
+where $\xi$ is the collected evidence beyond the two compulsory crackles nodes
+VC Basal and VC sym.
+
+
+```{r}
+print(params$tavola1,df_print="kable")
+```
+
+
+BF values
+
+```{r}
+print(params$tavola2,df_print="kable")
+```
+
+
+
+## Figures
+
+```{r}
+print(params$figura1)
+```
+
+
+```{r,results='asis'}
+cat("\n<br><br>\n")
+```
+
+
+```{r}
+print(params$figura2)
+```
+
+
+
+
+
+
+## Informed nodes (evidence)
+
+Here below, the evidence entered into the Bayesian Network and selected 
+parameters values are shown.
+
+Sensitivity and specificiy values:
+
+```{r}
+params$spe_sen_LS
+```
+
+
+Evidence:
+
+
+```{r,echo=F}
+cat("\n")
+etichette <-  names(params$current_evi)
+valoriEv <- as.character(params$current_evi)
+mancanti <- valoriEv== "NA"
+ 
+res <- sort(paste(etichette[!mancanti],"=", valoriEv[!mancanti]))
+cat(res, sep="\n")
+cat("\n")
+```
+
+
+
+
+
+
+# Effect size: informed evidences
+
+In this section the leave-one-out effect (Loo) 
+and the switch-one-state (Sos) effect are evaluated 
+for every node for which evidence is provided.
+
+
+
+The first two tables below, are obtained with an initial distribution on diseases
+conditioned to the two compulsory crackles variables   
+$$EE\_AuscVC\_Basal  \wedge EE\_AuscVC\_Sym\_same\_lev $$ 
+while the final distribution is obtained by also conditioning to all other collected evidences $\xi$
+$$EE\_AuscVC\_Basal  \wedge EE\_AuscVC\_Sym\_same\_lev \wedge \xi $$ 
+
+
+```{r}
+print(params$effe_size_stat$res_all_evid$tavolaPro,
+      df_print="kable")
+```
+
+
+BF values, crackles as initial reference, original provided evidence:
+
+```{r}
+print(params$effe_size_stat$res_all_evid$tavolaBF,
+      df_print="kable")
+```
+
+
+
+
+## Informed evidences: Loo
+
+Below ratios of posterior probability and of BF are printed
+after deleting evidence in turn one node at a time.
+
+
+Posterior probability ratios: 
+```{r}
+mygraphprobloo <- diverging_bchart_loo(params$effe_size_stat,
+                                       type_sco=c("tavolaPro","tavolaBF")[1])
+numeroBarre <- length(params$effe_size_stat[["res_loo"]])
+dimensioHeight <- min(2 + 10*(numeroBarre/30), 12)
+```
+
+```{r,fig.height=dimensioHeight,fig.width=10}
+                                 
+print(mygraphprobloo)  
+```
+
+
+
+Bayes Factor ratios:
+
+```{r,fig.height=dimensioHeight,fig.width=10}
+mygraphBFloo <- diverging_bchart_loo(params$effe_size_stat,
+                                   type_sco=c("tavolaPro","tavolaBF")[2])
+
+print(mygraphBFloo)  
+```
+
+
+
+ 
+
+
+### Loo: full table
+
+
+Below the node removed from evidences is printed and the 
+implied tables are shown.
+
+The initial distribution on diseases is conditioned on 
+$$EE\_AuscVC\_Basal  \wedge EE\_AuscVC\_Sym\_same\_lev \wedge \xi $$ 
+The final  distribution on diseases is conditioned on 
+$$EE\_AuscVC\_Basal  \wedge EE\_AuscVC\_Sym\_same\_lev \wedge (\xi\setminus\delta_i) $$ 
+thuis the variable $\delta_i$ has been deleted from evidence.
+
+
+```{r,comment=NA}
+knitr::opts_chunk$set(opts.label="kill_prefix")
+for(aux in seq_along(params$effe_size_stat$res_loo)){
+  msg <-  paste0("Deleted evidence: ",params$effe_size_stat$res_loo[[aux]]$deletedEvidence)
+  cat("--------------------------------------------------------------------------------\n")
+  cat(msg,"\n")
+  cat("\n")
+  print(params$effe_size_stat$res_loo[[aux]]$tavolaPro)
+  cat("\n\n")
+  print(params$effe_size_stat$res_loo[[aux]]$tavolaBF)
+  cat("\n\n")
+}
+
+```
+
+
+
+
+
+
+
+## Informed evidences: Sos
+
+Here each node in the evidence  switches its state to another one which
+is not equal to the collected evidence.
+
+
+```{r}
+numeroBarre <- length(params$effe_size_stat[["res_switchin"]])
+dimensioHeight <- min(2+ 10*(numeroBarre/50),12)
+```
+
+
+Posterior probability ratios: 
+ 
+```{r,fig.height=dimensioHeight,fig.width=10}
+mygraphprobsos <- diverging_bchart_sos(params$effe_size_stat,
+                                       type_sco=c("tavolaPro","tavolaBF")[1])
+                                 
+print(mygraphprobsos)  
+```
+
+
+
+Bayes Factor ratios:
+
+```{r,fig.height=dimensioHeight,fig.width=10}
+mygraphBFsos <- diverging_bchart_sos(params$effe_size_stat,
+                                   type_sco=c("tavolaPro","tavolaBF")[2])
+
+print(mygraphBFsos)  
+```
+
+
+
+
+
+
+
+### Sos: full tables
+
+The initial distribution on diseases is conditioned on 
+$$EE\_AuscVC\_Basal  \wedge EE\_AuscVC\_Sym\_same\_lev \wedge \xi $$ 
+The final  distribution on diseases is conditioned on 
+$$EE\_AuscVC\_Basal  \wedge EE\_AuscVC\_Sym\_same\_lev \wedge \xi(\sigma_{i,j}) $$ 
+thus the evidence has been modified because variable   $\delta_i$ was switched into its state $j$,
+a switch indicated as $\xi(\sigma_{i,j})$.
+
+
+
+
+```{r,comment=NA}
+knitr::opts_chunk$set(opts.label="kill_prefix")
+dimen_sos <- length(params$effe_size_stat$res_switch)
+
+for(aux in seq_along(params$effe_size_stat$res_switch)){
+  msg <-  paste0('Node "',params$effe_size_stat$res_switch[[aux]]$node,'" switched state to "',
+                 params$effe_size_stat$res_switch[[aux]]$state,'"\n\n')
+  cat("--------------------------------------------------------------------------------\n")
+  cat(msg,"\n")
+  cat("\n")
+  print(params$effe_size_stat$res_switch[[aux]]$tavolaPro)
+  cat("\n\n")
+  print(params$effe_size_stat$res_switch[[aux]]$tavolaBF)
+  cat("\n\n")
+}
+
+```
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+# Effect size: inputed missing evidence
+
+
+In this section the reference distribution is
+made by the posterior distribution after all the available evidence is entered.
+Among the missing variables (outside the collected evidence) in turn one is entered with 
+value equal to one among possible states and then the  posterior distribution is calculated.
+
+
+The initial probability of disease is conditioned to 
+$$EE\_AuscVC\_Basal  \wedge EE\_AuscVC\_Sym\_same\_lev \wedge \xi$$ 
+two compulsory crackles nodes, and the collected evidence.   
+
+The final probability is conditioned to 
+$$EE\_AuscVC\_Basal  \wedge EE\_AuscVC\_Sym\_same\_lev \wedge \xi \wedge \mathcal{I}_{j,k}$$ 
+that is  EE auscultated crackles and collected evidence $\xi$
+and the imputed variable $j$ in its state $i$, which is $\mathcal{I}_{j,k}$ .
+
+
+
+Posterior probability changes (ratios): 
+
+```{r}
+numeroBarre <- length(params$effe_size_stat[["res_missing"]])
+dimensioHeight <- min(2+ 10*(numeroBarre/50),12)
+```
+
+```{r,fig.height=dimensioHeight,fig.width=10}
+ 
+mygraphprob <- diverging_bchart_miss(params$effe_size_stat,
+                                     type_sco=c("tavolaPro","tavolaBF")[1])
+print(mygraphprob)  
+```
+
+
+
+Bayes Factor:
+
+```{r,fig.height=dimensioHeight,fig.width=10}
+mygraphBF <- diverging_bchart_miss(params$effe_size_stat,
+                                   type_sco=c("tavolaPro","tavolaBF")[2])
+print(mygraphBF)  
+```
+
+
+
+### Missing evidence: full output
+    
+    
+
+    
+```{r,comment=NA}
+knitr::opts_chunk$set(opts.label="kill_prefix")
+dimen_moi <- length(params$effe_size_stat$res_missing)
+
+for(aux in seq_along(params$effe_size_stat$res_missing)){
+  msg <-  paste0('Node "',params$effe_size_stat$res_missing[[aux]]$node,'" missing,\nimputed state= "',
+                 params$effe_size_stat$res_missing[[aux]]$state,'"\n\n')
+  cat("--------------------------------------------------------------------------------\n")
+  cat(msg,"\n")
+  cat("\n")
+  print(params$effe_size_stat$res_missing[[aux]]$tavolaPro)
+  cat("\n\n")
+  print(params$effe_size_stat$res_missing[[aux]]$tavolaBF)
+  cat("\n\n")
+}
+
+```
+
+
+
+
+```{r,results='asis'}
+cat("<br><br><br><br><br><br><br>")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
