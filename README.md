@@ -64,7 +64,7 @@ of  a larger  project dealing with velcro crackles.
 
 Please note that the included License applies only to the code   I have developed, 
 not  to other R packages needed to run it. 
-Last, this is  R code developed for research purposed,
+Last, this is  R code developed for research purposes,
 and   is not yet ready (validated) for any use in the medical field.
 
 
